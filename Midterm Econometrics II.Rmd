@@ -1,0 +1,182 @@
+---
+title: "Midterm Part 2"
+author: "John Dobson"
+date: "2/16/2017"
+output: html_document
+---
+```{r}
+rm(list=ls())
+```
+#1 A
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+w<-rnorm(1000,0,1)
+u<-rnorm(1000,0,1)
+x<-vector()
+y<-vector()
+theta<-.5
+x[1]<-0
+y[1]<-1+w[1]+u[1]+theta*rnorm(1,0,1)
+for (t in 2:1000) {
+  x[t]<-(.98*x[t-1]) + w[t]
+  y[t]<-1+w[t]+u[t]+(theta)*u[t-1]
+}
+ts.plot(x)
+ts.plot(y)
+```
+
+#B
+```{r}
+acf(x, lag.max = 20)
+```
+
+#C
+```{r}
+acf(y, lag.max = 20)
+```
+
+#D
+```{r}
+ccf(x,y, lag.max=20)
+```
+
+#2 A
+assuming wt is gaussian white noise
+```{r}
+n<-1000
+wt<-rnorm(1000,0,1)
+y2<-vector()
+for (t in 1:n) {
+y2[t]<- 2*cos(pi*(t+12)/7) + wt[t]
+}
+mean(y2)
+ts.plot(y2)
+lines(rep(0,1000), col = 2)
+```
+
+#B
+```{r}
+acf(y2, lag.max = 20)
+theoretical<-vector()
+for (t in 1:1000) {
+  theoretical[t]<-cos(pi*(t+12)/7)
+}
+acf(theoretical, col = 2, lag.max = 20)
+```
+
+I would expect the theoretical and the simulated ACF's to look similiar given that the signal of Cosine will yield a plot that is cyclical always. The revolutions will show initial positive co-variation, and then once the t causes the cosine function to hit the midpoint of the cycle, the co-variation will appear negative from 0 lags. This is shown from the two graphs. They both are very similiar with and without the white noise.
+
+
+#3 A
+```{r}
+data<-read.csv('1_17.csv')
+xt<-ts(data)
+```
+
+#B
+```{r}
+plot(xt)
+acf(xt, lag.max = 50)
+```
+
+#C
+```{r}
+plot(xt)
+xlag1<-lag(xt,-1)
+xlag2<-lag(xt,-2)
+xlag3<-lag(xt,-3)
+xlag4<-lag(xt,-4)
+xlag5<-lag(xt,-5)
+xlag6<-lag(xt,-6)
+
+objects<-cbind(xt,xlag1,xlag2,xlag3,xlag4,xlag5,xlag6)
+intersect<- ts.intersect(xt,xlag1,xlag2,xlag3,xlag4,xlag5,xlag6)
+pairs(intersect)
+```
+
+#D
+```{r}
+fit1<- lm(xt~xlag1)
+fit2<- lm(xt~xlag1+xlag2)
+fit3<- lm(xt~xlag1+xlag2+xlag3)
+fit4<- lm(xt~xlag1+xlag2+xlag3+xlag4)
+fit5<- lm(xt~xlag1+xlag2+xlag3+xlag4+xlag5)
+fit5<- lm(xt~xlag1+xlag2+xlag3+xlag4+xlag5+xlag6)
+fit6<- lm(xt~xlag6)
+```
+
+#E
+I found there too be a cyclical relationship every two lags, so the model that includes just one lags seems to contain the cycle of xt's (i.e. gets rid of redundancy in a sense).
+```{r}
+summary(fit2)
+
+summary(fit1)
+```
+
+Note that fit2 will have NA values for the beta coeficient on xlag2.
+
+#F
+```{r}
+res<- residuals(fit6)
+acf(res, lag.max = 50)
+```
+
+Residuals do resemble white noise here in the sense that there is only covariation at the initial lag, but none elsewhere (with 95% confidence). 
+
+#4 A
+```{r}
+library('astsa')
+plot(jj)
+plot(log(jj))
+```
+
+I prefer to look at the log if the Johnson-Johnson stock growth because the data appears exponential, and we can get a better sense of growth rates using log. We get a better sense beause we now have roughly a linear growth rate due to the log transformation.
+
+```{r}
+acf(jj)
+
+acf(log(jj))
+```
+
+#B
+The data looks too symetric (too correlated across lags) to be a random walk with drift. It looks like a random walk with drift in the sense that there is a general 'drift' upward with variation along the way, but the variations/errors appear very much to be correlated.
+
+```{r}
+Q = factor( cycle( jj ))
+trend = time(jj) - 1970
+jjmod<- lm(jj~trend)
+summary(jjmod)
+logjjmod<- lm(log(jj)~trend)
+logjjres<-residuals(logjjmod)
+plot(logjjres)
+acf(logjjres)
+```
+
+There does appear to be seasonality (possibly associated with the christmas boom in consumption) in the data, the frequency is quarterly over a year.
+
+
+#C
+```{r}
+summary(logjjmod)
+```
+
+#D
+```{r}
+logjjQmod = lm( log(jj) ~ 0 + trend + Q )
+summary(logjjQmod)
+```
+
+#E
+```{r}
+AIC(jjmod)
+AIC(logjjmod)
+AIC(logjjQmod)
+
+BIC(jjmod)
+BIC(logjjmod)
+BIC(logjjQmod)
+```
+
+
+
+Going by R-squared, the linear trend plus quarterly dummies (logjjQmod) has the highest R-squared at .9931, compared with .9763 linear without dummies and .8497 for the non-linear model. In terms of AIC and BIC,  the linear trend plus quarterly dummies mod is also best in that it has the 'smallest' AIC and BIC in the sense that these are log-likelihood values. We want large negative values for our log-likelihood because that means our model better fits the data, or in otherwords is more likely to describe the actual data.
